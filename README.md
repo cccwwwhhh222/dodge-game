@@ -8,11 +8,14 @@
 **https://cccwwwhhh222.github.io/dodge-game/**
 
 手机浏览器直接打开这个网址就能玩（单指拖动），电脑上也可以。
-页面第一次加载需要下载约 49 MB（引擎 wasm + 字体 + 音频），Wi-Fi 下大约 5~15 秒；
-点页面里的「开始游戏」之后背景音乐才会响（浏览器的自动播放限制）。
+
+- **首屏只需下载 11.4 MB**（原来 49.2 MB），宽带下 2~4 秒进游戏，4G 大约 8 秒
+- 加载时先显示「暴龙躲避」的进度页，不会白屏干等
+- 点「开始游戏」之后背景音乐才会响（浏览器自动播放限制）
+- 极老的浏览器若解压不了，打开 `?raw=1` 走兼容模式（慢但一定能跑）
 
 > 站点由 GitHub Pages 托管，发布源是本仓库的 `docs/` 目录。
-> 更新游戏的操作：重新导出 Web 到 `build/web` → 复制到 `docs/` → 提交并推送，Pages 会自动重新发布。
+> 更新：重新导出 Web 到 `build/web` → `gzip` 出 `index.wasm.gz` → 复制到 `docs/` → 提交推送（见「体积优化」）。
 
 ---
 
@@ -23,7 +26,33 @@
 | --- | --- | --- | --- |
 | ![](tests/preview_360x640_home.png) | ![](tests/preview_360x640_gameplay.png) | ![](tests/preview_360x640_pause.png) | ![](tests/preview_360x640_gameover.png) |
 
-20:9 长屏（412×892）下的适配效果：![](tests/preview_412x892_home.png)
+---
+
+## 体积优化（49.2 MB → 11.4 MB）
+
+| 项目 | 前 | 后 | 做法 |
+| --- | --- | --- | --- |
+| 中文字体 | 8.09 MB | **0.25 MB** | 自写 glyf 子集器 `tools/subset_font.py`，只留界面用到的 629 个字形；用 `FontVariation.variation_embolden` 补回字重 |
+| 引擎 wasm | 37.68 MB | **9.59 MB** | 自定义 HTML 加载页：下载 `index.wasm.gz`，用浏览器 `DecompressionStream` 本地解压后喂给引擎 |
+| 资源包 pck | 11.25 MB | **1.49 MB** | 贴图有损导入（WebP）、背景降分辨率、音乐降到 q2 Vorbis |
+| **首屏合计** | **49.2 MB** | **11.4 MB** | |
+
+两个关键点：
+
+1. **`.pck` 几乎压不动**（gzip 只少 0.1 MB），所以体积必须从源文件上砍——字体、贴图、音频都是源头处理。
+2. **GitHub Pages 不会给 `.wasm` 做 gzip**，而 wasm 有 37.7 MB。既然改不了服务器，就自己压：
+   `gzip -9 index.wasm` 得到 9.59 MB，页面里用 `DecompressionStream` 解压；
+   `window.fetch` 被替换成「拦截 wasm 请求、返回解压后字节」的包装器，引擎完全无感。
+   不支持 `DecompressionStream` 的环境自动回退到原始 `index.wasm`。
+
+不需要浏览器也能验证这条链路：
+
+```bash
+node tools/loader_test.js
+# [http] GET /index.wasm.gz 10054758      ← 只请求 gz，没请求 37MB 的 wasm
+# wasm 内容完全一致     : true
+# wasm MIME             : application/wasm
+```
 
 ---
 
@@ -87,12 +116,24 @@ HOME（首界面）──开始──▶ PLAYING（游戏中）──暂停─�
 | 文件 | 用途 | 来源 |
 | --- | --- | --- |
 | `assets/dragon.png` | 主角（小龙战士） | 877×870 原图，`Sprite.scale = 0.135` |
-| `assets/bg_farm.png` | 背景（农场） | 952×1273，`TextureRect` 等比铺满（会裁掉两侧一点） |
+| `assets/bg_farm.png` | 背景（农场） | 800×1070（已降分辨率），有损导入，等比铺满 |
 | `assets/enemy_happy.png` | 敌人①（开心） | 由 `_poop_src.jpg` 抠图 |
 | `assets/enemy_shocked.png` | 敌人②（惊恐） | 同上 |
 | `assets/enemy_angry.png` | 敌人③（生气） | 同上 |
 | `assets/_poop_src.jpg` | 三个表情的原图（1280×1280） | 只作为抠图源，运行时不加载 |
-| `assets/audio/bgm.ogg` | 背景音乐（2:17.7，mono 44.1k Vorbis，1.12 MB） | 从你给的 mp4 里抽的音频 |
+| `assets/audio/bgm.ogg` | 背景音乐（2:17.7，mono 44.1k Vorbis q2，0.86 MB） | 从你给的 mp4 里抽的音频 |
+| `assets/fonts/NotoSansSC-Subset.ttf` | 中文字体子集（250 KB / 629 字形） | 系统 Noto Sans SC VF（OFL），由 `tools/subset_font.py` 生成 |
+| `assets/fonts/ui_font.tres` | FontVariation：子集字体 + `variation_embolden=1.0` | 补回正常字重（原字体默认实例是 Thin） |
+| `web/shell.html` | 自定义加载页 + wasm gzip 解压逻辑 | 基于 4.7.2 官方模板改写 |
+
+> 原版 8 MB 的 `NotoSansSC-Regular.otf` 已经从仓库里移除，现在用的是子集版。
+> **以后如果界面新增了汉字，必须重跑一次子集化**，否则新字会显示成方框：
+>
+> ```bash
+> python tools/subset_font.py "C:\Windows\Fonts\NotoSansSC-VF.ttf" assets/fonts/NotoSansSC-Subset.ttf
+> ```
+>
+> 它默认读取 `tools/_chars.txt`（从所有 `.gd` 里抽出来的字符集），新增文案后先重新生成这个文件。
 
 抠图脚本：`python tools/cut_enemies.py` → 输出 `assets/enemy_*.png`（256×256 透明 PNG）。
 要点（脚本注释里也写了）：**只删「和图片边框连通的白」**，所以白色眼球会被保留；
