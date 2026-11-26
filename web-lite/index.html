@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b0f18">
+<meta name="description" content="暴龙躲避 —— 拖动屏幕躲开满屏的便便，活得越久分越高。">
+<title>暴龙躲避</title>
+<link rel="icon" href="data:,">
+<link rel="preload" as="image" href="assets/bg.webp">
+<link rel="preload" as="image" href="assets/dragon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-mode="loading">
+<div id="stage">
+  <canvas id="game"></canvas>
+
+  <!-- 浮动摇杆 -->
+  <div id="stick"><div id="knob"></div></div>
+
+  <!-- 游戏内 HUD -->
+  <div id="hud" class="hidden">
+    <div class="pill score-pill">
+      <div class="cap">分数</div>
+      <div id="score" class="num">0</div>
+    </div>
+    <div class="pill best-pill"><span id="best">最高 0</span></div>
+    <button class="btn ghost pause-btn" data-action="pause">暂停</button>
+  </div>
+
+  <!-- 首界面 -->
+  <div id="home" class="overlay hidden">
+    <div class="scrim"></div>
+    <button class="btn ghost small music-btn" id="musicHome" data-action="music">音乐 开</button>
+    <div class="home-inner">
+      <h1 class="title">暴龙躲避</h1>
+      <div class="rule"></div>
+      <p class="subtitle">躲开满屏的便便，活得越久分越高</p>
+      <p class="best-line" id="homeBest">最高分   0</p>
+    </div>
+    <div class="home-bottom">
+      <p class="hint">手指在屏幕任意位置按住并拖动即可移动</p>
+      <button class="btn primary" data-action="start">开 始 游 戏</button>
+      <p class="footer">Canvas 版 · 首屏 &lt; 0.4 MB</p>
+    </div>
+  </div>
+
+  <!-- 暂停 -->
+  <div id="pause" class="overlay hidden">
+    <div class="scrim"></div>
+    <div class="panel">
+      <h2>暂停中</h2>
+      <div class="rule"></div>
+      <button class="btn primary" data-action="resume">继续游戏</button>
+      <button class="btn ghost" data-action="restart">重新开始</button>
+      <button class="btn ghost" id="musicPause" data-action="music">音乐 开</button>
+      <button class="btn ghost" data-action="home">返回首界面</button>
+    </div>
+  </div>
+
+  <!-- 结算 -->
+  <div id="over" class="overlay hidden">
+    <div class="scrim"></div>
+    <div class="panel">
+      <h2>游戏结束</h2>
+      <p id="overRecord" class="record hidden">新 纪 录 ！</p>
+      <div class="rule"></div>
+      <p class="cap">本局分数</p>
+      <p id="overScore" class="big-score">0</p>
+      <p id="overTime" class="stat">存活时间    0.0 秒</p>
+      <p id="overBest" class="stat">最高分      0</p>
+      <button class="btn primary" data-action="restart">再 来 一 局</button>
+      <button class="btn ghost" data-action="home">返回首界面</button>
+    </div>
+  </div>
+
+  <!-- 资源加载 -->
+  <div id="loader" class="overlay">
+    <div class="load-box">
+      <div class="load-title">暴龙躲避</div>
+      <div class="bar-wrap"><div id="loaderBar"></div></div>
+      <p class="load-hint" id="loaderHint">正在准备…</p>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="js/game.js"></script>
+</body>
+</html>

@@ -5,22 +5,40 @@
 
 ## 🎮 在线试玩
 
-**https://cccwwwhhh222.github.io/dodge-game/**
+**https://cccwwwhhh222.github.io/dodge-game/** ← 轻量版（Canvas），**首屏 412 KB**
 
-手机浏览器直接打开这个网址就能玩（单指拖动），电脑上也可以。
+- 手机浏览器直接打开就能玩，单指在屏幕上按住拖动
+- 首屏只加载 4 张图 + 30 KB 代码，**0.4 MB 级**，2G 级别的弱网也能几秒进游戏
+- 背景音乐（0.86 MB）在后台懒加载，不影响进游戏速度
+- 点「开始游戏」之后音乐才会响（浏览器自动播放限制）
 
-- **首屏只需下载 11.4 MB**（原来 49.2 MB），宽带下 2~4 秒进游戏，4G 大约 8 秒
-- 加载时先显示「暴龙躲避」的进度页，不会白屏干等
-- 点「开始游戏」之后背景音乐才会响（浏览器自动播放限制）
-- 极老的浏览器若解压不了，打开 `?raw=1` 走兼容模式（慢但一定能跑）
+引擎版（Godot 导出，11.4 MB）：**https://cccwwwhhh222.github.io/dodge-game/godot/**
+两个版本玩法、数值、界面完全一致，只是体积不同，可以对比着看。
 
-> 站点由 GitHub Pages 托管，发布源是本仓库的 `docs/` 目录。
-> 更新：重新导出 Web 到 `build/web` → `gzip` 出 `index.wasm.gz` → 复制到 `docs/` → 提交推送（见「体积优化」）。
+> 站点由 GitHub Pages 托管，发布源是本仓库的 `docs/` 目录：根目录 = 轻量版，`docs/godot/` = 引擎版。
+> 更新：改 `web-lite/` → 复制到 `docs/` → 提交推送。
 
 ---
 
-> ✅ 已用 **Godot 4.7.2.stable.steam** 实跑验证：无头冒烟测试 **49 项全过**，
-> 并截了首界面 / 战斗中 / 暂停 / 结算四张真机画面（见下表）。中文界面、背景音乐（循环）、音乐开关都已跑通。
+## 两个版本的关系
+
+| | 轻量版（主站） | 引擎版（`/godot/`） |
+| --- | --- | --- |
+| 实现 | 手写 Canvas 2D（`web-lite/`） | Godot 4.7 导出 |
+| 首屏 | **412 KB** | 11.4 MB |
+| 2~4 秒可玩 | ✅ | ❌（当前网络 10~40 秒） |
+| 后续加复杂玩法 | 要自己写 | 用编辑器，效率高 |
+| APK / 桌面版 | — | ✅ 同一套工程 |
+
+轻量版的核心规则抽在 `web-lite/js/core.js` 里（纯逻辑、不碰 DOM），
+Godot 版和它共用同一套数值，两边手感一致；`tools/lite_core_test.js` 与 `tools/lite_dom_test.js`
+可以在没有浏览器的情况下把规则和界面逻辑都跑一遍。
+
+---
+
+> ✅ Godot 版已用 **Godot 4.7.2.stable.steam** 实跑验证：无头冒烟测试 **49 项全过**，
+> 并截了首界面 / 战斗中 / 暂停 / 结算四张真机画面（见下表）。
+> 轻量版：核心规则 2194 项断言 + 界面逻辑 32 项断言全过（Node 模拟 DOM）。
 
 | 首界面 | 战斗中 | 暂停 | 结算 |
 | --- | --- | --- | --- |
@@ -176,8 +194,16 @@ $ff = python -c "import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())"
 ```
 project.godot                项目设置（Compatibility 渲染器、竖屏、4 个输入动作、Game 自动加载）
 icon.svg                     图标
-assets/                      美术资源（龙 / 农场背景 / 三个表情敌人）
-tools/cut_enemies.py         从 _poop_src.jpg 抠出三个敌人贴图
+web-lite/                    轻量版（Canvas，主站用的就是它）
+  index.html                 页面结构（首界面 / HUD / 暂停 / 结算 / 加载页）
+  style.css                  全部样式（配色、面板、按钮、响应式）
+  js/core.js                 纯规则：难度曲线、刷怪、移动、碰撞（无 DOM，可直接 Node 测试）
+  js/game.js                 渲染 + 输入 + 状态机 + 音频 + 存档
+  assets/                    bg.webp / dragon.png / poop1-3.png / bgm.ogg
+tools/cut_enemies.py         从 poop_src.jpg 抠出三个敌人贴图
+tools/build_lite_assets.py   生成 web-lite/assets（缩尺寸 + 转 WebP）
+tools/lite_core_test.js      规则测试（2194 项断言，node 直接跑）
+tools/lite_dom_test.js       界面逻辑测试（32 项断言，Node 模拟 DOM 跑真代码）
 scenes/
   main.tscn                  关卡总控：BackgroundLayer(背景+压暗) / Playfield / TouchLayer / HUD / Home
   player.tscn                玩家（Sprite2D 龙 + 光圈 + 椭圆投影 + 圆碰撞）
@@ -193,8 +219,9 @@ scripts/
   touch_joystick.gd          浮动摇杆（多点触控、坐标换算、拖出底盘跟随）
   circle_visual.gd           _draw() 画圆/圆环：玩家脚下光圈、敌人提示环、椭圆投影
 assets/
-  fonts/NotoSansSC-Regular.otf  中文字体（OFL 授权，见 fonts/NOTICE.md）
-  audio/bgm.ogg                 背景音乐（2:17，循环播放）
+  fonts/NotoSansSC-Subset.ttf  中文字体子集（250 KB，OFL 授权，见 fonts/NOTICE.md）
+  fonts/ui_font.tres           FontVariation（variation_embolden = 1.0）
+  audio/bgm.ogg                背景音乐（2:17，循环播放）
 tests/
   smoke_test.tscn/.gd        无头冒烟测试（49 项断言，返回码即结果）
   capture.tscn/.gd           自动截图（首屏/战斗/暂停/结算）

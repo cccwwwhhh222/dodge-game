@@ -1,225 +1,89 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, viewport-fit=cover">
-	<meta name="theme-color" content="#0f1420">
-	<title>Dodge 韬查伩</title>
-	<style>
-		html, body, #canvas {
-			margin: 0;
-			padding: 0;
-			border: 0;
-			height: 100%;
-			width: 100%;
-		}
-		body {
-			background: #0f1420;
-			color: #fdf6e3;
-			overflow: hidden;
-			touch-action: none;
-			font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", "Hiragino Sans GB", sans-serif;
-			-webkit-user-select: none;
-			user-select: none;
-		}
-		#canvas { display: block; outline: none; }
-
-		#status {
-			position: fixed;
-			inset: 0;
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: center;
-			gap: 22px;
-			background: radial-gradient(circle at 50% 40%, #1b2232 0%, #0b0f18 70%);
-			z-index: 10;
-			transition: opacity .35s ease;
-		}
-		#status.done { opacity: 0; pointer-events: none; }
-		#title {
-			font-size: clamp(28px, 9vw, 46px);
-			letter-spacing: .12em;
-			font-weight: 700;
-			color: #ffb703;
-			text-shadow: 0 4px 18px rgba(255, 183, 3, .35);
-		}
-		#bar-wrap {
-			width: min(70vw, 300px);
-			height: 8px;
-			border-radius: 99px;
-			background: rgba(255, 255, 255, .12);
-			overflow: hidden;
-		}
-		#bar {
-			height: 100%;
-			width: 0%;
-			border-radius: 99px;
-			background: linear-gradient(90deg, #ffb703, #ffd166);
-			transition: width .18s ease;
-		}
-		#hint {
-			font-size: 13px;
-			color: #9aa7bd;
-			letter-spacing: .05em;
-			min-height: 1.2em;
-			text-align: center;
-			padding: 0 24px;
-			line-height: 1.6;
-		}
-		#notice {
-			display: none;
-			max-width: min(86vw, 460px);
-			padding: 14px 18px;
-			border-radius: 12px;
-			background: #5b3943;
-			border: 1px solid #9b3943;
-			color: #ffe8e8;
-			font-size: 14px;
-			line-height: 1.6;
-			white-space: pre-wrap;
-			text-align: center;
-		}
-	</style>
-	<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
-<link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
-
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b0f18">
+<meta name="description" content="暴龙躲避 —— 拖动屏幕躲开满屏的便便，活得越久分越高。">
+<title>暴龙躲避</title>
+<link rel="icon" href="data:,">
+<link rel="preload" as="image" href="assets/bg.webp">
+<link rel="preload" as="image" href="assets/dragon.png">
+<link rel="stylesheet" href="style.css">
 </head>
-<body>
-	<canvas id="canvas">你的浏览器不支持 canvas。</canvas>
-	<noscript>你的浏览器禁用了 JavaScript，无法运行本游戏。</noscript>
+<body data-mode="loading">
+<div id="stage">
+  <canvas id="game"></canvas>
 
-	<div id="status">
-		<div id="title">暴龙躲避</div>
-		<div id="bar-wrap"><div id="bar"></div></div>
-		<div id="hint">正在加载引擎…</div>
-		<div id="notice"></div>
-	</div>
+  <!-- 浮动摇杆 -->
+  <div id="stick"><div id="knob"></div></div>
 
-	<script src="index.js"></script>
-	<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":1557620,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
-const GODOT_THREADS_ENABLED = false;
+  <!-- 游戏内 HUD -->
+  <div id="hud" class="hidden">
+    <div class="pill score-pill">
+      <div class="cap">分数</div>
+      <div id="score" class="num">0</div>
+    </div>
+    <div class="pill best-pill"><span id="best">最高 0</span></div>
+    <button class="btn ghost pause-btn" data-action="pause">暂停</button>
+  </div>
 
-// ---------------------------------------------------------------------------
-// 体积优化：Godot 的 index.wasm 有 37 MB，gzip 之后只有 9.6 MB。
-// GitHub Pages 不会给 .wasm 做压缩，所以这里自己下载 index.wasm.gz、
-// 在浏览器里用 DecompressionStream 解开，再把字节塞给引擎的 fetch。
-// 不支持 DecompressionStream 的老浏览器会自动回退到原始的 index.wasm。
-// ---------------------------------------------------------------------------
-const statusEl = document.getElementById('status');
-const barEl = document.getElementById('bar');
-const hintEl = document.getElementById('hint');
-const noticeEl = document.getElementById('notice');
+  <!-- 首界面 -->
+  <div id="home" class="overlay hidden">
+    <div class="scrim"></div>
+    <button class="btn ghost small music-btn" id="musicHome" data-action="music">音乐 开</button>
+    <div class="home-inner">
+      <h1 class="title">暴龙躲避</h1>
+      <div class="rule"></div>
+      <p class="subtitle">躲开满屏的便便，活得越久分越高</p>
+      <p class="best-line" id="homeBest">最高分   0</p>
+    </div>
+    <div class="home-bottom">
+      <p class="hint">手指在屏幕任意位置按住并拖动即可移动</p>
+      <button class="btn primary" data-action="start">开 始 游 戏</button>
+      <p class="footer">Canvas 版 · 首屏 &lt; 0.4 MB</p>
+    </div>
+  </div>
 
-let progress = 0;
-function setProgress(value, text) {
-	progress = Math.max(progress, Math.min(1, value));
-	barEl.style.width = (progress * 100).toFixed(1) + '%';
-	if (text) hintEl.textContent = text;
-}
+  <!-- 暂停 -->
+  <div id="pause" class="overlay hidden">
+    <div class="scrim"></div>
+    <div class="panel">
+      <h2>暂停中</h2>
+      <div class="rule"></div>
+      <button class="btn primary" data-action="resume">继续游戏</button>
+      <button class="btn ghost" data-action="restart">重新开始</button>
+      <button class="btn ghost" id="musicPause" data-action="music">音乐 开</button>
+      <button class="btn ghost" data-action="home">返回首界面</button>
+    </div>
+  </div>
 
-function showNotice(text) {
-	noticeEl.textContent = text;
-	noticeEl.style.display = 'block';
-}
+  <!-- 结算 -->
+  <div id="over" class="overlay hidden">
+    <div class="scrim"></div>
+    <div class="panel">
+      <h2>游戏结束</h2>
+      <p id="overRecord" class="record hidden">新 纪 录 ！</p>
+      <div class="rule"></div>
+      <p class="cap">本局分数</p>
+      <p id="overScore" class="big-score">0</p>
+      <p id="overTime" class="stat">存活时间    0.0 秒</p>
+      <p id="overBest" class="stat">最高分      0</p>
+      <button class="btn primary" data-action="restart">再 来 一 局</button>
+      <button class="btn ghost" data-action="home">返回首界面</button>
+    </div>
+  </div>
 
-// 兜底：加 ?raw=1 打开时跳过 gzip 直读原始 wasm（慢但一定能跑）
-const RAW_MODE = /[?&]raw=1/.test(location.search);
+  <!-- 资源加载 -->
+  <div id="loader" class="overlay">
+    <div class="load-box">
+      <div class="load-title">暴龙躲避</div>
+      <div class="bar-wrap"><div id="loaderBar"></div></div>
+      <p class="load-hint" id="loaderHint">正在准备…</p>
+    </div>
+  </div>
+</div>
 
-const WASM_GZ = 'index.wasm.gz';
-let wasmBufferPromise = null;
-
-async function prefetchWasm() {
-	if (!('DecompressionStream' in window) || !window.fetch) return null;
-	try {
-		const resp = await fetch(WASM_GZ, { cache: 'force-cache' });
-		if (!resp.ok) return null;
-		const total = Number(resp.headers.get('content-length')) || 0;
-		let received = 0;
-		const chunks = [];
-		const reader = resp.body.getReader();
-		for (;;) {
-			const { done, value } = await reader.read();
-			if (done) break;
-			chunks.push(value);
-			received += value.length;
-			// 下载阶段占 0~72%
-			setProgress(0.72 * (total ? received / total : 0.5), '正在下载引擎… ' + (total ? Math.round(100 * received / total) : ''));
-		}
-		setProgress(0.76, '正在解压引擎…');
-		const stream = new Blob(chunks).stream().pipeThrough(new DecompressionStream('gzip'));
-		const buffer = await new Response(stream).arrayBuffer();
-		setProgress(0.86, '引擎就绪，正在加载游戏资源…');
-		return buffer;
-	} catch (err) {
-		console.warn('[loader] wasm.gz 解压失败，回退到未压缩的 index.wasm', err);
-		return null;
-	}
-}
-
-wasmBufferPromise = RAW_MODE ? Promise.resolve(null) : prefetchWasm();
-
-const nativeFetch = window.fetch ? window.fetch.bind(window) : null;
-if (nativeFetch) {
-	window.fetch = async function (input, init) {
-		const url = typeof input === 'string' ? input : (input && input.url) || '';
-		if (!url.endsWith('.gz') && /\.wasm(\?|$)/.test(url)) {
-			const buffer = await wasmBufferPromise;
-			if (buffer) {
-				return new Response(buffer, {
-					status: 200,
-					headers: { 'Content-Type': 'application/wasm' },
-				});
-			}
-		}
-		return nativeFetch(input, init);
-	};
-}
-
-const engine = new Engine(GODOT_CONFIG);
-
-(function () {
-	let initializing = true;
-
-	function displayFailureNotice(err) {
-		console.error(err);
-		const message = err instanceof Error ? err.message : String(err);
-		showNotice('启动失败：\n' + message + '\n\n请先刷新重试；仍然不行就点下面的兼容模式（较慢但一定能跑）。');
-		const link = document.createElement('a');
-		link.href = '?raw=1';
-		link.textContent = '用兼容模式打开';
-		link.style.cssText = 'display:inline-block;margin-top:12px;color:#ffd166;text-decoration:underline;font-size:14px;';
-		noticeEl.appendChild(document.createElement('br'));
-		noticeEl.appendChild(link);
-		setProgress(1, '');
-		initializing = false;
-	}
-
-	const missing = Engine.getMissingFeatures({ threads: GODOT_THREADS_ENABLED });
-	if (missing.length !== 0) {
-		showNotice('你的浏览器缺少运行所需的特性：\n' + missing.join('\n'));
-		return;
-	}
-
-	engine.startGame({
-		onProgress: function (current, total) {
-			if (current > 0 && total > 0) {
-				// 引擎资源加载阶段占 86~100%
-				setProgress(0.86 + 0.14 * (current / total), '正在加载游戏资源…');
-			} else {
-				setProgress(0.9, '正在加载游戏资源…');
-			}
-		},
-	}).then(() => {
-		if (!initializing) return;
-		setProgress(1, '');
-		statusEl.classList.add('done');
-		setTimeout(() => statusEl.remove(), 400);
-		initializing = false;
-	}, displayFailureNotice);
-}());
-	</script>
+<script type="module" src="js/game.js"></script>
 </body>
 </html>
-
