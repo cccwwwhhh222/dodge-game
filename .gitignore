@@ -3,3 +3,7 @@
 build/
 export/
 *.translation
+
+# 本地临时文件
+.tmp-edge/
+*.tmp
