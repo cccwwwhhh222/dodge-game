@@ -1,0 +1,5 @@
+# Godot 4 工程 .gitignore
+.godot/
+build/
+export/
+*.translation

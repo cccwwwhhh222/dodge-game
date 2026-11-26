@@ -1,0 +1,35 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/player.gd" id="1_player"]
+[ext_resource type="Texture2D" path="res://assets/dragon.png" id="2_dragon"]
+[ext_resource type="Script" path="res://scripts/circle_visual.gd" id="3_marker"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_player"]
+radius = 34.0
+
+[node name="Player" type="CharacterBody2D"]
+collision_layer = 1
+collision_mask = 0
+script = ExtResource("1_player")
+
+[node name="Shadow" type="Node2D" parent="."]
+position = Vector2(0, 34)
+scale = Vector2(1.35, 0.42)
+script = ExtResource("3_marker")
+radius = 30.0
+color = Color(0, 0, 0, 0.25)
+outline_width = 0.0
+
+[node name="Marker" type="Node2D" parent="."]
+script = ExtResource("3_marker")
+radius = 50.0
+color = Color(0.35, 0.9, 1, 0.06)
+outline_width = 2.5
+outline_color = Color(0.4, 0.95, 1, 0.65)
+
+[node name="Sprite" type="Sprite2D" parent="."]
+scale = Vector2(0.135, 0.135)
+texture = ExtResource("2_dragon")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_player")

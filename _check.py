@@ -1,0 +1,124 @@
+"""Static sanity checks for the Godot demo project (no engine needed)."""
+import re
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+problems = []
+
+
+def rel(p):
+    return str(p.relative_to(ROOT))
+
+
+# ---------------------------------------------------------------- tscn checks
+def parse_tscn(path):
+    text = path.read_text(encoding="utf-8")
+    ext = dict(re.findall(r'\[ext_resource[^\]]*path="([^"]+)"[^\]]*id="([^"]+)"', text))
+    ext = {v: k for k, v in ext.items()}
+    subs = set(re.findall(r'\[sub_resource[^\]]*id="([^"]+)"', text))
+    nodes = []
+    for m in re.finditer(r'\[node name="([^"]+)"([^\]]*)\]', text):
+        name, attrs = m.group(1), m.group(2)
+        parent = re.search(r'parent="([^"]*)"', attrs)
+        nodes.append((name, parent.group(1) if parent else None))
+    return text, ext, subs, nodes
+
+
+scene_nodes = {}
+for scene in sorted(ROOT.glob("scenes/*.tscn")):
+    text, ext, subs, nodes = parse_tscn(scene)
+    scene_nodes[scene.name] = {n for n, p in nodes}
+    for sid, spath in ext.items():
+        if not (ROOT / spath.replace("res://", "")).exists():
+            problems.append(f"{rel(scene)}: ext_resource missing file {spath}")
+    for sid in re.findall(r"SubResource\(\"([^\"]+)\"\)", text):
+        if sid not in subs:
+            problems.append(f"{rel(scene)}: SubResource {sid} not declared")
+    declared = len(ext) + len(subs)
+    m = re.search(r"load_steps=(\d+)", text)
+    if m and int(m.group(1)) != declared + 1:
+        problems.append(f"{rel(scene)}: load_steps={m.group(1)} but should be {declared + 1}")
+    names = {n for n, p in nodes}
+    for name, parent in nodes:
+        if parent in (None, ""):
+            continue
+        if parent == ".":
+            continue  # 根节点
+        base = parent.split("/")[-1]
+        if base not in names:
+            problems.append(f"{rel(scene)}: node '{name}' parent '{parent}' not found")
+
+# ------------------------------------------------------------------ gd checks
+gd_files = sorted(ROOT.glob("scripts/*.gd"))
+classes = {}
+for f in gd_files:
+    src = f.read_text(encoding="utf-8")
+    lines = src.splitlines()
+    for i, line in enumerate(lines, 1):
+        if line.startswith(" "):
+            problems.append(f"{rel(f)}:{i}: indented with spaces")
+        if line.rstrip().endswith("\\"):
+            problems.append(f"{rel(f)}:{i}: line continuation backslash (GDScript 不支持)")
+    # indentation must be tabs, and any indent line must have a colon-block ancestor
+    if src.count("\t ") or src.count(" \t"):
+        problems.append(f"{rel(f)}: mixed tab/space indentation")
+    # every func/if/for/while/match/else header ends with ':'
+    for i, line in enumerate(lines, 1):
+        s = line.strip()
+        if re.match(r"^(func |if |elif |else:|for |while |match |class_name )", s) and not s.endswith(":"):
+            if not s.startswith("class_name"):
+                problems.append(f"{rel(f)}:{i}: header without colon -> {s}")
+    m = re.search(r"^class_name (\w+)", src, re.M)
+    if m:
+        classes[m.group(1)] = f.name
+
+# check @onready node paths resolve inside the matching scene
+script_to_scene = {
+    "main.gd": "main.tscn",
+    "player.gd": "player.tscn",
+    "enemy.gd": "enemy.tscn",
+}
+for script, scene in script_to_scene.items():
+    path = ROOT / "scripts" / script
+    src = path.read_text(encoding="utf-8")
+    available = scene_nodes.get(scene, set())
+    for m in re.finditer(r"@onready var \w+: [\w\[\]]+ = \$([\w/]+)", src):
+        root_path = m.group(1)
+        if root_path.split("/")[0] not in available:
+            problems.append(f"{rel(path)}: ${root_path} not in {scene}")
+
+# check signals used with .connect exist in the emitting class
+signal_owner = {
+    "play_pressed": "hud.gd",
+    "restart_pressed": "hud.gd",
+    "input_changed": "touch_joystick.gd",
+    "hit_player": "enemy.gd",
+}
+for f in gd_files:
+    src = f.read_text(encoding="utf-8")
+    for sig in re.findall(r"\.(\w+)\.connect\(", src):
+        if sig in signal_owner:
+            owner_src = (ROOT / "scripts" / signal_owner[sig]).read_text(encoding="utf-8")
+            if f"signal {sig}" not in owner_src:
+                problems.append(f"{rel(f)}: connects {sig} but not declared in {signal_owner[sig]}")
+
+# --------------------------------------------------------------- project.godot
+pg = (ROOT / "project.godot").read_text(encoding="utf-8")
+main_scene = re.search(r'run/main_scene="res://([^"]+)"', pg)
+if not main_scene or not (ROOT / main_scene.group(1)).exists():
+    problems.append("project.godot: main scene missing")
+autoload = re.search(r'Game="\*res://([^"]+)"', pg)
+if not autoload or not (ROOT / autoload.group(1)).exists():
+    problems.append("project.godot: autoload Game missing")
+for scene in ROOT.glob("scenes/*.tscn"):
+    if not scene.with_suffix(".tscn.uid").exists():
+        pass  # uid files are generated by the editor on first open
+
+print(f"scripts: {len(gd_files)}, scenes: {len(scene_nodes)}, classes: {sorted(classes)}")
+if problems:
+    print("\nPROBLEMS:")
+    for p in problems:
+        print(" -", p)
+    sys.exit(1)
+print("\nAll static checks passed.")
