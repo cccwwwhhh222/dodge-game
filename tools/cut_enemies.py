@@ -9,7 +9,7 @@
 import numpy as np
 from PIL import Image
 
-SRC = "assets/_poop_src.jpg"
+SRC = "tools/poop_src.jpg"
 OUT_DIR = "assets"
 SIZE = 256
 

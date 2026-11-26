@@ -6,7 +6,7 @@ extends RefCounted
 ## 字体用 Noto Sans SC（SIL OFL 1.1，可随游戏分发），已在 project.godot 里设为全局默认字体。
 ## ===========================================================================
 
-const FONT_PATH: String = "res://assets/fonts/NotoSansSC-Regular.otf"
+const FONT_PATH: String = "res://assets/fonts/ui_font.tres"
 
 ## 深夜蓝黑（面板底）
 const C_INK: Color = Color(0.063, 0.082, 0.129)

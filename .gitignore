@@ -1,4 +1,4 @@
-# Godot 4 工程 .gitignore
+﻿# Godot 4 工程 .gitignore
 .godot/
 build/
 export/
@@ -6,4 +6,7 @@ export/
 
 # 本地临时文件
 .tmp-edge/
+.edge/
+.edge2/
 *.tmp
+tests/_*
